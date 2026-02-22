@@ -246,14 +246,14 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
     // SSE endpoint - proper MCP SSE transport
     if (url.pathname === "/sse") {
       if (req.method === "GET") {
-        console.error("SSE connection attempt received");
+        console.info("SSE connection attempt received");
         
         // Create SSE transport and connect the MCP server
         const transport = new SSEServerTransport("/sse", res);
         
         // Set up connection lifecycle handlers
         transport.onclose = () => {
-          console.error("SSE connection closed");
+          console.info("SSE connection closed");
         };
         
         transport.onerror = (error: Error) => {
@@ -261,13 +261,13 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
         };
         
         try {
-          console.error("Connecting MCP server to SSE transport (connect() starts the transport)");
+          console.info("Connecting MCP server to SSE transport (connect() starts the transport)");
           await mcpServer.connect(transport);
-          console.error("MCP server connected successfully to SSE transport");
+          console.info("MCP server connected successfully to SSE transport");
           
           // Handle client disconnection
           req.on('close', async () => {
-            console.error("Client disconnected, closing transport");
+            console.info("Client disconnected, closing transport");
             try {
               await transport.close();
             } catch (error) {
@@ -287,7 +287,7 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
       } else if (req.method === "POST") {
         // This should be handled by the SSE transport's handlePostMessage
         // But we need to find the correct transport instance for this session
-        console.error("SSE POST request received - this should be handled by transport");
+        console.info("SSE POST request received - this should be handled by transport");
         
         // For now, fallback to direct handling to maintain compatibility
         let body = "";
@@ -299,7 +299,7 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
           try {
             // Parse the MCP request
             const mcpRequest = JSON.parse(body);
-            console.error("MCP Request:", mcpRequest);
+            console.info("MCP Request:", mcpRequest);
             
             // Handle the request through the MCP server
             let result;
@@ -332,7 +332,7 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
               result = { prompts: [] };
             } else if (mcpRequest.method === "notifications/initialized") {
               // Handle initialization notification - no response needed for notifications
-              console.error("Client initialized notification received");
+              console.info("Client initialized notification received");
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(); // No response body for notifications
               return;
@@ -476,14 +476,14 @@ curl -X POST http://localhost:${config.server.port}/tools \\
 
   // Start HTTP server
   httpServer.listen(config.server.port, config.server.host, () => {
-    console.error(`CouchDB MCP Server is running on http://${config.server.host}:${config.server.port}`);
-    console.error(`Available endpoints:`);
-    console.error(`  - GET  http://${config.server.host}:${config.server.port}/         (Documentation)`);
-    console.error(`  - GET  http://${config.server.host}:${config.server.port}/health   (Health check)`);
-    console.error(`  - GET  http://${config.server.host}:${config.server.port}/info     (Server info)`);
-    console.error(`  - GET  http://${config.server.host}:${config.server.port}/openapi.json (OpenAPI spec)`);
-    console.error(`  - GET  http://${config.server.host}:${config.server.port}/sse      (SSE transport)`);
-    console.error(`  - POST http://${config.server.host}:${config.server.port}/tools    (Direct tool calls)`);
+    console.info(`CouchDB MCP Server is running on http://${config.server.host}:${config.server.port}`);
+    console.info(`Available endpoints:`);
+    console.info(`  - GET  http://${config.server.host}:${config.server.port}/         (Documentation)`);
+    console.info(`  - GET  http://${config.server.host}:${config.server.port}/health   (Health check)`);
+    console.info(`  - GET  http://${config.server.host}:${config.server.port}/info     (Server info)`);
+    console.info(`  - GET  http://${config.server.host}:${config.server.port}/openapi.json (OpenAPI spec)`);
+    console.info(`  - GET  http://${config.server.host}:${config.server.port}/sse      (SSE transport)`);
+    console.info(`  - POST http://${config.server.host}:${config.server.port}/tools    (Direct tool calls)`);
   });
 
   // Handle graceful shutdown
@@ -493,7 +493,7 @@ curl -X POST http://localhost:${config.server.port}/tools \\
     if (isShuttingDown) return;
     isShuttingDown = true;
     
-    console.error(`\nReceived ${signal}. Shutting down gracefully...`);
+    console.info(`\nReceived ${signal}. Shutting down gracefully...`);
     
     // Close HTTP server and stop accepting new connections
     httpServer.close(async (err) => {
@@ -509,7 +509,7 @@ curl -X POST http://localhost:${config.server.port}/tools \\
         
         // Give any pending operations a chance to complete
         await new Promise(resolve => setTimeout(resolve, 100));
-        console.error("Graceful shutdown complete");
+        console.info("Graceful shutdown complete");
         process.exit(0);
       } catch (error) {
         console.error("Error during shutdown:", error);
