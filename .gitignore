@@ -4,3 +4,6 @@ app/.DS_Store
 app/.env.example
 .DS_Store
 docker/settings
+app
+docker/config.json
+docker/dev.env

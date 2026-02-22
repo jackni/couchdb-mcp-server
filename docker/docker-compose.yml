@@ -1,0 +1,17 @@
+services:
+  couchdb-mcp-dev:
+    container_name: "couchdb-mcp-dev"
+    build:
+      context: ../
+      dockerfile: ./docker/build.Dockerfile
+    environment:
+      MCP_TRANSPORT: "sse"   # stdio | sse | streamable-http
+    # env_file:
+    #   - ./dev.env
+    volumes:
+      # local mount into container 
+      - ../:/app
+      - ./settings:/root/.claude
+    stdin_open: true # you need this for tunnel the code sync
+    ports:
+      - 3008:3008

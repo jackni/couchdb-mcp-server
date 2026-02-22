@@ -21,7 +21,7 @@ export class CouchDBMCPServer {
 
   async initialize(): Promise<void> {
     console.error("Initializing CouchDB MCP Server...");
-    
+
     // Test connection to CouchDB
     try {
       await this.couchdbClient.getServerInfo();
@@ -30,7 +30,7 @@ export class CouchDBMCPServer {
       console.error("Failed to connect to CouchDB:", error);
       throw error;
     }
-    
+
     console.error("CouchDB MCP Server initialized successfully!");
   }
 

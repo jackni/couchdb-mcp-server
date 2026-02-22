@@ -60,7 +60,7 @@ export class DatabaseHandlers {
     };
   }
 
-  async handleListDatabases(args: any): Promise<CallToolResult> {
+  async handleListDatabases(_args: any): Promise<CallToolResult> {
     const databases = await this.couchdbClient.listDatabases();
     
     return {

@@ -1,9 +1,199 @@
 import { Server as MCPServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { URL } from "url";
 import { Config } from "./config.js";
 import { CouchDBMCPServer } from "./server.js";
+
+/**
+ * Generate OpenAPI 3.0 specification from MCP tools
+ */
+function generateOpenAPISpec(tools: Tool[], config: Config): any {
+  const serverUrl = `http://${config.server.host}:${config.server.port}`;
+  
+  const paths: any = {
+    "/tools": {
+      post: {
+        summary: "Execute an MCP tool",
+        description: "Direct tool execution endpoint for testing",
+        operationId: "executeTool",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  tool: {
+                    type: "string",
+                    description: "Name of the tool to execute",
+                    enum: tools.map(t => t.name)
+                  },
+                  arguments: {
+                    type: "object",
+                    description: "Tool arguments"
+                  }
+                },
+                required: ["tool"]
+              }
+            }
+          }
+        },
+        responses: {
+          "200": {
+            description: "Tool execution result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    content: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          type: { type: "string" },
+                          text: { type: "string" }
+                        }
+                      }
+                    },
+                    isError: { type: "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            description: "Bad request",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    error: { type: "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+
+  // Add individual tool endpoints
+  tools.forEach(tool => {
+    const path = `/tools/${tool.name}`;
+    paths[path] = {
+      post: {
+        summary: tool.description || `Execute ${tool.name}`,
+        description: tool.description,
+        operationId: tool.name.replace(/-/g, "_"),
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: tool.inputSchema || {
+                type: "object",
+                properties: {},
+                required: []
+              }
+            }
+          }
+        },
+        responses: {
+          "200": {
+            description: "Tool execution result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    content: {
+                      type: "array",
+                      items: {
+                        type: "object"
+                      }
+                    },
+                    isError: { type: "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            description: "Bad request",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    error: { type: "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+  });
+
+  return {
+    openapi: "3.0.0",
+    info: {
+      title: "CouchDB MCP Server API",
+      version: "1.0.0",
+      description: "Model Context Protocol server for comprehensive CouchDB management",
+      contact: {
+        name: "CouchDB MCP Server"
+      }
+    },
+    servers: [
+      {
+        url: serverUrl,
+        description: "CouchDB MCP Server"
+      }
+    ],
+    paths,
+    components: {
+      schemas: {
+        ToolResult: {
+          type: "object",
+          properties: {
+            content: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string" },
+                  text: { type: "string" }
+                }
+              }
+            },
+            isError: { type: "boolean" }
+          }
+        },
+        Error: {
+          type: "object",
+          properties: {
+            error: { type: "string" }
+          }
+        }
+      }
+    },
+    tags: [
+      { name: "tools", description: "MCP tool operations" },
+      { name: "database", description: "Database operations" },
+      { name: "document", description: "Document operations" },
+      { name: "security", description: "Security and user management" },
+      { name: "replication", description: "Replication operations" },
+      { name: "design", description: "Design document operations" },
+      { name: "query", description: "Query operations" }
+    ]
+  };
+}
 
 export async function createSSEServer(mcpServer: MCPServer, config: Config): Promise<void> {
   // Create CouchDB server for direct tool calls endpoint
@@ -44,6 +234,15 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
       return;
     }
 
+    // OpenAPI spec endpoint
+    if (url.pathname === "/openapi.json" && req.method === "GET") {
+      const tools = await couchdbServer.getTools();
+      const openApiSpec = generateOpenAPISpec(tools, config);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(openApiSpec, null, 2));
+      return;
+    }
+
     // SSE endpoint - proper MCP SSE transport
     if (url.pathname === "/sse") {
       if (req.method === "GET") {
@@ -62,10 +261,7 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
         };
         
         try {
-          console.error("Starting SSE transport");
-          await transport.start();
-          
-          console.error("Connecting MCP server to SSE transport");
+          console.error("Connecting MCP server to SSE transport (connect() starts the transport)");
           await mcpServer.connect(transport);
           console.error("MCP server connected successfully to SSE transport");
           
@@ -81,8 +277,10 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
           
         } catch (error) {
           console.error("Failed to connect MCP server to SSE transport:", error);
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Failed to establish SSE connection" }));
+          if (!res.headersSent) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Failed to establish SSE connection" }));
+          }
         }
         
         return;
@@ -176,15 +374,6 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
       req.on("end", async () => {
         try {
           const { tool, arguments: args } = JSON.parse(body);
-          
-          // Simulate MCP tool call request
-          const request = {
-            method: "tools/call",
-            params: {
-              name: tool,
-              arguments: args || {}
-            }
-          };
 
           // Call the tool directly through our CouchDB server
           const result = await couchdbServer.handleToolCall(tool, args);
@@ -232,6 +421,12 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
           <div class="endpoint">
             <h3>GET /info</h3>
             <p>Server information and available tools</p>
+          </div>
+          
+          <div class="endpoint">
+            <h3>GET /openapi.json</h3>
+            <p>OpenAPI 3.0 specification for all available tools</p>
+            <p><a href="/openapi.json" target="_blank">View OpenAPI Spec</a></p>
           </div>
           
           <div class="endpoint">
@@ -286,6 +481,7 @@ curl -X POST http://localhost:${config.server.port}/tools \\
     console.error(`  - GET  http://${config.server.host}:${config.server.port}/         (Documentation)`);
     console.error(`  - GET  http://${config.server.host}:${config.server.port}/health   (Health check)`);
     console.error(`  - GET  http://${config.server.host}:${config.server.port}/info     (Server info)`);
+    console.error(`  - GET  http://${config.server.host}:${config.server.port}/openapi.json (OpenAPI spec)`);
     console.error(`  - GET  http://${config.server.host}:${config.server.port}/sse      (SSE transport)`);
     console.error(`  - POST http://${config.server.host}:${config.server.port}/tools    (Direct tool calls)`);
   });

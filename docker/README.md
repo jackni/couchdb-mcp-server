@@ -18,23 +18,64 @@ A Model Context Protocol (MCP) server that provides comprehensive CouchDB manage
 - **SSE Transport Support**: Server-Sent Events for real-time communication
 - **Configurable**: Environment-based configuration with validation
 
-## Quick Start
 
-### Installation
-
-```bash
-cd app
-npm install
-npm run build
-```
 
 ### Configuration
 
-Copy the example environment file and configure your CouchDB settings:
+### Running the Server
 
-```bash
-cd app
-cp .env.example .env
+**With HTTP/SSE transport:**
+
+## Transport selection (`MCP_TRANSPORT`)
+
+The image supports three transports. Set the `MCP_TRANSPORT` environment variable (default: `sse`):
+
+| Value | Description |
+|-------|-------------|
+| `stdio` | STDIO transport (for MCP clients that run the container and use stdin/stdout) |
+| `sse` | SSE transport; single `/sse` endpoint (GET for stream, POST for messages) |
+| `streamable-http` | Streamable HTTP transport; single `/mcp` endpoint (GET for SSE, POST for JSON-RPC) |
+
+Example with Streamable HTTP:
+
+``` yml
+environment:
+  MCP_TRANSPORT: "streamable-http"
+```
+
+## Example Setup
+``` yml
+services:
+  couchdb-mcp:
+    image: "deviljackni/couchdb-mcp-server:latest"
+    container_name: "couchdb-mcp"
+    environment:
+      MCP_TRANSPORT: "streamable-http"   # or stdio | sse
+    volumes: 
+     - ./config.json/:/app/config.json 
+    ports:
+      - 3006:3008
+```
+
+Content of config.json
+``` json
+{
+  "couchdb": {
+    "url": "https://your-couchdb-url",
+    "adminUsername": "your-admin-username",
+    "adminPassword": "your-admin-password"
+  },
+  "server": {
+    "port": 3008,
+    "host": "0.0.0.0",
+    "logLevel": "info"
+  },
+  "security": {
+    "credentialPrefix": "U-",
+    "passwordLength": 32,
+    "rolePrefix": "role-"
+  }
+}
 ```
 
 Edit `.env` with your CouchDB connection details:
@@ -44,32 +85,6 @@ COUCHDB_URL=http://localhost:5984
 COUCHDB_ADMIN_USERNAME=admin
 COUCHDB_ADMIN_PASSWORD=password
 ```
-
-### Running the Server
-
-**With STDIO transport (default):**
-```bash
-cd app
-npm run dev
-# Communicates via stdin/stdout for MCP clients
-```
-
-**With HTTP/SSE transport:**
-```bash
-cd app
-npm run dev -- --sse
-# Starts HTTP server on port 3000 (configurable via PORT env var)
-```
-
-**Production:**
-```bash
-cd app
-npm start -- --sse
-```
-
-### HTTP Endpoints (SSE Mode)
-
-When running with `--sse`, the server provides these HTTP endpoints:
 
 - `GET /` - API documentation and usage examples
 - `GET /health` - Health check endpoint  
@@ -105,28 +120,26 @@ When running with `--sse`, the server provides these HTTP endpoints:
 - `get-design-document`: Retrieve design documents
 
 ### Query Operations
-- `query-documents`: Query documents using MongoDB-style Mango query syntax
-- `query-view`: Query a CouchDB view (MapReduce)
-- `create-index`: Create a Mango index for efficient querying
-- `list-indexes`: List all indexes in a database
-- `delete-index`: Delete a Mango index
+- `mango-query-database`: Query documents using MongoDB-style Mango query syntax
+- `create-database-index`: Create a Mango index for efficient querying
+- `list-database-indexes`: List all indexes in a database
+- `delete-database-index`: Delete a Mango index
 
-## Example Usage
 
 ### HTTP Tool Testing (SSE mode)
 ```bash
 # Create a database
-curl -X POST http://localhost:3000/tools \
+curl -X POST http://localhost:3008/tools \
   -H "Content-Type: application/json" \
   -d '{"tool": "create-database", "arguments": {"databaseName": "my-app-db"}}'
 
 # List all databases
-curl -X POST http://localhost:3000/tools \
+curl -X POST http://localhost:3008/tools \
   -H "Content-Type: application/json" \
   -d '{"tool": "list-databases"}'
 
 # Get server info
-curl http://localhost:3000/info
+curl http://localhost:3008/info
 ```
 
 ### MCP Tool Schema
@@ -183,7 +196,7 @@ curl http://localhost:3000/info
 ### Querying Documents
 ```json
 {
-  "tool": "query-documents",
+  "tool": "mango-query-database",
   "arguments": {
     "databaseName": "my-app-db",
     "selector": {
@@ -195,52 +208,32 @@ curl http://localhost:3000/info
 }
 ```
 
-## Development
+### Index Management Examples
+```json
+{
+  "tool": "create-database-index",
+  "arguments": {
+    "databaseName": "my-app-db",
+    "fields": ["name", "age"]
+  }
+}
 
-### Building
-```bash
-cd app
-npm run build
+{
+  "tool": "list-database-indexes",
+  "arguments": {
+    "databaseName": "my-app-db"
+  }
+}
+
+{
+  "tool": "delete-database-index",
+  "arguments": {
+    "databaseName": "my-app-db",
+    "designDoc": "_design/my-index-design",
+    "name": "my-index"
+  }
+}
 ```
-
-### Type Checking
-```bash
-cd app
-npm run typecheck
-```
-
-### Linting
-```bash
-cd app
-npm run lint
-```
-
-## Architecture
-
-The server is built with a modular architecture:
-
-- **Server**: Main MCP server handling tool calls
-- **CouchDB Client**: Low-level CouchDB operations using nano
-- **Tool Handlers**: Modular handlers for different operation categories
-- **Credential Manager**: Security credential generation and management
-- **Audit Logger**: Comprehensive operation logging and metrics
-
-## Security
-
-- Admin credentials are securely stored and used only by the MCP server
-- Generated credentials follow configurable naming conventions
-- All operations are logged with sensitive data redacted
-- Database security is enforced through CouchDB's built-in role system
-
-## Extensibility
-
-The generic foundation makes it easy to add domain-specific extensions:
-
-- Custom workflow endpoints
-- Business-specific validation
-- Integration with external systems
-- Custom audit requirements
-
 ## License
 
 MIT
