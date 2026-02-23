@@ -1,6 +1,6 @@
-# CouchDB Control Plane MCP Server
+# CouchDB Control Plane MCP Server — Docker
 
-A Model Context Protocol (MCP) server that provides comprehensive CouchDB management capabilities. This server offers both high-level workflows and low-level operations for managing CouchDB databases, documents, users, security, replications, and design documents.
+Run the CouchDB MCP server in a container. The image supports **STDIO**, **SSE**, and **Streamable HTTP** transports and is configured via a mounted `config.json` (and optional environment variables).
 
 ## Features
 
@@ -15,50 +15,89 @@ A Model Context Protocol (MCP) server that provides comprehensive CouchDB manage
 ### Advanced Features
 - **Two-Tier Security**: Admin credentials + generated per-resource credentials
 - **Comprehensive Audit Logging**: Full audit trail of all operations
-- **SSE Transport Support**: Server-Sent Events for real-time communication
-- **Configurable**: Environment-based configuration with validation
+- **Multiple Transports**: STDIO, SSE, and Streamable HTTP
+- **Configurable**: `config.json` with environment variable overrides
 
+---
 
+## Prerequisites
 
-### Configuration
+- Docker (and optionally Docker Compose)
+- A running CouchDB instance (URL, admin username, password)
+- For HTTP transports: port **3008** exposed in the container (map as needed on the host)
 
-### Running the Server
+---
 
-**With HTTP/SSE transport:**
+## Quick Start
 
-## Transport selection (`MCP_TRANSPORT`)
+### 1. Pull and run with Docker Compose
 
-The image supports three transports. Set the `MCP_TRANSPORT` environment variable (default: `sse`):
+```bash
+cd docker
+# Create config.json with your CouchDB URL and credentials (see Configuration below)
 
-| Value | Description |
-|-------|-------------|
-| `stdio` | STDIO transport (for MCP clients that run the container and use stdin/stdout) |
-| `sse` | SSE transport; single `/sse` endpoint (GET for stream, POST for messages) |
-| `streamable-http` | Streamable HTTP transport; single `/mcp` endpoint (GET for SSE, POST for JSON-RPC) |
-
-Example with Streamable HTTP:
-
-``` yml
-environment:
-  MCP_TRANSPORT: "streamable-http"
+docker compose -f mcp-docker-compose.yml up -d
 ```
 
-## Example Setup
-``` yml
+The server will listen on **port 3006** on the host (mapped from 3008 in the container). Use `http://localhost:3006` for health, info, and tools.
+
+### 2. Run with Docker only
+
+```bash
+# Create a config file (see Configuration below)
+docker run -d \
+  --name couchdb-mcp \
+  -p 3006:3008 \
+  -v $(pwd)/config.json:/app/config.json \
+  -e MCP_TRANSPORT=streamable-http \
+  deviljackni/couchdb-mcp-server:1.1.0
+```
+
+---
+
+## Building the image
+
+From the **repository root**:
+
+```bash
+docker build -f docker/Dockerfile -t couchdb-mcp-server:local .
+```
+
+Then run with your tag:
+
+```bash
+docker run -d --name couchdb-mcp -p 3006:3008 \
+  -v $(pwd)/docker/config.json:/app/config.json \
+  -e MCP_TRANSPORT=streamable-http \
+  couchdb-mcp-server:local
+```
+
+To use the built image in Compose, set the image name in `mcp-docker-compose.yml` or use the `build` block:
+
+```yaml
 services:
   couchdb-mcp:
-    image: "deviljackni/couchdb-mcp-server:latest"
-    container_name: "couchdb-mcp"
-    environment:
-      MCP_TRANSPORT: "streamable-http"   # or stdio | sse
-    volumes: 
-     - ./config.json/:/app/config.json 
-    ports:
-      - 3006:3008
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: couchdb-mcp-server:local
+    # ... rest of service config
 ```
 
-Content of config.json
-``` json
+---
+
+## Configuration
+
+### Config file (`config.json`)
+
+The server reads **`/app/config.json`** inside the container. Mount your own file:
+
+- **Docker:** `-v /path/on/host/config.json:/app/config.json`
+- **Compose:** `- ./config.json:/app/config.json` (path relative to the compose file)
+
+Example **`config.json`**:
+
+```json
 {
   "couchdb": {
     "url": "https://your-couchdb-url",
@@ -78,71 +117,161 @@ Content of config.json
 }
 ```
 
-Edit `.env` with your CouchDB connection details:
+- **`server.port`**: Must be **3008** if you use the default port mapping in the examples.
+- **`server.host`**: Use **`0.0.0.0`** so the server is reachable from outside the container.
 
-```env
-COUCHDB_URL=http://localhost:5984
-COUCHDB_ADMIN_USERNAME=admin
-COUCHDB_ADMIN_PASSWORD=password
+### Environment overrides
+
+You can override settings with environment variables (handy for secrets or different environments):
+
+| Variable | Overrides |
+|----------|-----------|
+| `COUCHDB_URL` | `couchdb.url` |
+| `COUCHDB_ADMIN_USERNAME` | `couchdb.adminUsername` |
+| `COUCHDB_ADMIN_PASSWORD` | `couchdb.adminPassword` |
+| `PORT` | `server.port` |
+| `HOST` | `server.host` |
+| `LOG_LEVEL` | `server.logLevel` |
+| `MCP_TRANSPORT` | Transport (see below) |
+
+Example with env file in Compose:
+
+```yaml
+services:
+  couchdb-mcp:
+    image: "deviljackni/couchdb-mcp-server:1.1.0"
+    env_file:
+      - ./dev.env
+    environment:
+      MCP_TRANSPORT: "streamable-http"
+    volumes:
+      - ./config.json:/app/config.json
+    ports:
+      - 3006:3008
 ```
 
-- `GET /` - API documentation and usage examples
-- `GET /health` - Health check endpoint  
-- `GET /info` - Server info and available tools
-- `GET /sse` - Server-Sent Events endpoint for MCP protocol
-- `POST /tools` - Direct tool execution for testing
+---
 
-## Available Tools
+## Transport selection (`MCP_TRANSPORT`)
 
-### Database Operations
-- `create-database`: Create a new database
-- `delete-database`: Delete a database
-- `get-database-info`: Get database information
-- `list-databases`: List all databases on a cluster
+Set **`MCP_TRANSPORT`** in the container (default if unset: **`sse`**):
 
-### Document Operations
-- `create-document`: Create a document
-- `get-document`: Retrieve a document
-- `update-document`: Update a document
-- `delete-document`: Delete a document
+| Value | Description |
+|-------|-------------|
+| `stdio` | STDIO transport (for MCP clients that run the container and use stdin/stdout) |
+| `sse` | SSE transport; endpoint **`GET /sse`** for the stream, **`POST /sse`** for messages |
+| `streamable-http` | Streamable HTTP; single **`/mcp`** endpoint (GET for SSE, POST for JSON-RPC) |
 
-### User & Security Management
-- `create-user`: Create a new user
-- `delete-user`: Delete a user
-- `set-database-security`: Configure database access permissions
+Example:
 
-### Replication Management
-- `create-replication`: Set up database replication
-- `delete-replication`: Remove a replication
+```yaml
+environment:
+  MCP_TRANSPORT: "streamable-http"
+```
 
-### Design Document Management
-- `deploy-design-document`: Deploy views, filters, and indexes
-- `get-design-document`: Retrieve design documents
+For **STDIO**, keep the container attached (e.g. no `-d`) and use **`stdin_open: true`** in Compose if your client needs it for tunneling.
 
-### Query Operations
-- `mango-query-database`: Query documents using MongoDB-style Mango query syntax
-- `create-database-index`: Create a Mango index for efficient querying
-- `list-database-indexes`: List all indexes in a database
-- `delete-database-index`: Delete a Mango index
+---
 
+## Example: full Compose setup
 
-### HTTP Tool Testing (SSE mode)
+**`mcp-docker-compose.yml`**:
+
+```yaml
+services:
+  couchdb-mcp:
+    image: "deviljackni/couchdb-mcp-server:1.1.0"
+    container_name: "couchdb-mcp"
+    environment:
+      MCP_TRANSPORT: "streamable-http"   # or stdio | sse
+    volumes:
+      - ./config.json:/app/config.json
+    stdin_open: true   # useful for STDIO / tunnel usage
+    ports:
+      - 3006:3008
+```
+
+**`config.json`** (in the same directory as the compose file, or adjust the volume path):
+
+```json
+{
+  "couchdb": {
+    "url": "https://your-couchdb-url",
+    "adminUsername": "your-admin-username",
+    "adminPassword": "your-admin-password"
+  },
+  "server": {
+    "port": 3008,
+    "host": "0.0.0.0",
+    "logLevel": "info"
+  },
+  "security": {
+    "credentialPrefix": "U-",
+    "passwordLength": 32,
+    "rolePrefix": "role-"
+  }
+}
+```
+
+Run:
+
+```bash
+docker compose -f mcp-docker-compose.yml up -d
+```
+
+---
+
+## HTTP endpoints (when using SSE or Streamable HTTP)
+
+With the default port mapping **3006:3008**, use **port 3006** on the host:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET http://localhost:3006/` | API documentation and usage examples |
+| `GET http://localhost:3006/health` | Health check |
+| `GET http://localhost:3006/info` | Server info and available tools |
+| `GET http://localhost:3006/sse` | SSE transport (when `MCP_TRANSPORT=sse`) |
+| `GET http://localhost:3006/mcp` | Streamable HTTP (when `MCP_TRANSPORT=streamable-http`) |
+| `POST http://localhost:3006/tools` | Direct tool execution for testing |
+
+---
+
+## Available tools (overview)
+
+- **Database:** `create-database`, `delete-database`, `get-database-info`, `list-databases`
+- **Documents:** `create-document`, `get-document`, `update-document`, `delete-document`
+- **User & security:** `create-user`, `delete-user`, `set-database-security`
+- **Replication:** `create-replication`, `delete-replication`
+- **Design docs:** `deploy-design-document`, `get-design-document`
+- **Query:** `mango-query-database`, `create-database-index`, `list-database-indexes`, `delete-database-index`
+
+---
+
+## Example: HTTP tool testing
+
+Use **port 3006** if you kept the default mapping:
+
 ```bash
 # Create a database
-curl -X POST http://localhost:3008/tools \
+curl -X POST http://localhost:3006/tools \
   -H "Content-Type: application/json" \
   -d '{"tool": "create-database", "arguments": {"databaseName": "my-app-db"}}'
 
 # List all databases
-curl -X POST http://localhost:3008/tools \
+curl -X POST http://localhost:3006/tools \
   -H "Content-Type: application/json" \
   -d '{"tool": "list-databases"}'
 
-# Get server info
-curl http://localhost:3008/info
+# Server info
+curl http://localhost:3006/info
+
+# Health check
+curl http://localhost:3006/health
 ```
 
-### MCP Tool Schema
+### Example tool payloads
+
+**Create database:**
 ```json
 {
   "tool": "create-database",
@@ -152,7 +281,7 @@ curl http://localhost:3008/info
 }
 ```
 
-### Setting Up Replication
+**Replication:**
 ```json
 {
   "tool": "create-replication",
@@ -167,7 +296,7 @@ curl http://localhost:3008/info
 }
 ```
 
-### Creating a User with Database Access
+**Create user and set database security:**
 ```json
 {
   "tool": "create-user",
@@ -178,7 +307,6 @@ curl http://localhost:3008/info
   }
 }
 ```
-
 ```json
 {
   "tool": "set-database-security",
@@ -193,7 +321,7 @@ curl http://localhost:3008/info
 }
 ```
 
-### Querying Documents
+**Mango query:**
 ```json
 {
   "tool": "mango-query-database",
@@ -208,7 +336,7 @@ curl http://localhost:3008/info
 }
 ```
 
-### Index Management Examples
+**Index management:**
 ```json
 {
   "tool": "create-database-index",
@@ -217,14 +345,16 @@ curl http://localhost:3008/info
     "fields": ["name", "age"]
   }
 }
-
+```
+```json
 {
   "tool": "list-database-indexes",
   "arguments": {
     "databaseName": "my-app-db"
   }
 }
-
+```
+```json
 {
   "tool": "delete-database-index",
   "arguments": {
@@ -234,6 +364,9 @@ curl http://localhost:3008/info
   }
 }
 ```
+
+---
+
 ## License
 
 MIT

@@ -5,8 +5,8 @@ WORKDIR /app
 COPY ./app /app
 
 RUN npm i 
-RUN npm audit fix
-RUN npm audit fix --force
+# RUN npm audit fix
+# RUN npm audit fix --force
 RUN npm run build
 
 FROM node:alpine3.22 AS runtime
