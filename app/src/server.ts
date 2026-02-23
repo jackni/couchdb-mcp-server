@@ -20,18 +20,18 @@ export class CouchDBMCPServer {
   }
 
   async initialize(): Promise<void> {
-    console.error("Initializing CouchDB MCP Server...");
-    
+    console.info("Initializing CouchDB MCP Server...");
+
     // Test connection to CouchDB
     try {
       await this.couchdbClient.getServerInfo();
-      console.error("Successfully connected to CouchDB");
+      console.info("Successfully connected to CouchDB");
     } catch (error) {
       console.error("Failed to connect to CouchDB:", error);
       throw error;
     }
-    
-    console.error("CouchDB MCP Server initialized successfully!");
+
+    console.info("CouchDB MCP Server initialized successfully!");
   }
 
   async getTools(): Promise<Tool[]> {
@@ -59,10 +59,10 @@ export class CouchDBMCPServer {
   }
 
   async cleanup(): Promise<void> {
-    console.error("Cleaning up CouchDB MCP Server...");
+    console.info("Cleaning up CouchDB MCP Server...");
     try {
       await this.couchdbClient.cleanup();
-      console.error("CouchDB MCP Server cleanup completed");
+      console.info("CouchDB MCP Server cleanup completed");
     } catch (error) {
       console.error("Error during CouchDB MCP Server cleanup:", error);
     }

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { CouchDBMCPServer } from "./server.js";
 import { config } from "./config.js";
+import { CouchDBMCPServer } from "./server.js";
 import { createSSEServer } from "./sse-server.js";
+import { createStdioServer } from "./stdio-server.js";
+import { createStreamableHTTPServer } from "./streamable-http-server.js";
 
 async function main() {
   const server = new Server(
@@ -42,35 +42,15 @@ async function main() {
   });
 
   // Transport selection
-  if (process.argv.includes("--sse")) {
-    console.error(`Starting CouchDB MCP Server with SSE transport on port ${config.server.port}...`);
+  if (process.argv.includes("--streamable-http") || process.argv.includes("--http-stream")) {
+    console.info(`Starting CouchDB MCP Server with Streamable HTTP transport on port ${config.server.port}...`);
+    await createStreamableHTTPServer(server, config);
+  } else if (process.argv.includes("--sse")) {
+    console.info(`Starting CouchDB MCP Server with SSE transport on port ${config.server.port}...`);
     await createSSEServer(server, config);
   } else {
-    console.error("Starting CouchDB MCP Server with STDIO transport...");
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("CouchDB MCP Server started successfully!");
-    
-    // Handle graceful shutdown for STDIO mode
-    let isShuttingDown = false;
-    
-    const gracefulShutdown = async (signal: string) => {
-      if (isShuttingDown) return;
-      isShuttingDown = true;
-      
-      console.error(`\nReceived ${signal}. Shutting down gracefully...`);
-      try {
-        await couchdbServer.cleanup();
-        console.error("Graceful shutdown complete");
-        process.exit(0);
-      } catch (error) {
-        console.error("Error during shutdown:", error);
-        process.exit(1);
-      }
-    };
-
-    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    console.info('Starting CouchDB MCP Server with STDIO transport');
+    await createStdioServer(server, config, couchdbServer);
   }
 }
 
