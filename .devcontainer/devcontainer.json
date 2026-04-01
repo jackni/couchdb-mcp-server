@@ -1,0 +1,58 @@
+{
+    "name": "Node.js & TypeScript",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  
+    // Features to add to the dev container
+    "features": {
+      "ghcr.io/devcontainers/features/node:1": {
+        "version": "lts",
+        "nvmVersion": "latest"
+      }
+    },
+  
+    // VS Code customizations
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "dbaeumer.vscode-eslint",
+          "esbenp.prettier-vscode",
+          "ms-vscode.vscode-typescript-next",
+          "christian-kohler.path-intellisense",
+          "streetsidesoftware.code-spell-checker",
+          "usernamehw.errorlens",
+          "eamodio.gitlens",
+          "ms-vscode.vscode-json"
+        ],
+        "settings": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "explicit"
+          },
+          "typescript.tsdk": "node_modules/typescript/lib",
+          "typescript.enablePromptUseWorkspaceTsdk": true,
+          "eslint.validate": ["typescript", "javascript"],
+          "files.exclude": {
+            "node_modules": true,
+            "dist": true
+          }
+        }
+      }
+    },
+  
+    // Ports to forward from the container
+    "forwardPorts": [3008, 4000, 8080],
+  
+    // Post-creation commands
+    // "postCreateCommand": "npm install",
+  
+    // Post-start commands (runs every time container starts)
+    // "postStartCommand": "npm run build",
+  
+    // Cleanup on container stop
+    "postStopCommand": "npm run clean",
+  
+    // Run as non-root user
+    "remoteUser": "node",
+    "shutdownAction": "stopContainer"
+  }

@@ -19,19 +19,36 @@ export class CouchDBMCPServer {
     this.toolHandlers = new ToolHandlers(this.couchdbClient, this.auditLogger);
   }
 
+  private isStdioTransport(): boolean {
+    return (
+      process.env.MCP_TRANSPORT === "stdio" ||
+      (!process.argv.includes("--sse") &&
+        !process.argv.includes("--streamable-http") &&
+        !process.argv.includes("--http-stream"))
+    );
+  }
+
   async initialize(): Promise<void> {
-    console.info("Initializing CouchDB MCP Server...");
+    if (!this.isStdioTransport()) {
+      console.info("Initializing CouchDB MCP Server...");
+    }
 
     // Test connection to CouchDB
     try {
       await this.couchdbClient.getServerInfo();
-      console.info("Successfully connected to CouchDB");
+      if (!this.isStdioTransport()) {
+        console.info("Successfully connected to CouchDB");
+      }
     } catch (error) {
-      console.error("Failed to connect to CouchDB:", error);
+      if (!this.isStdioTransport()) {
+        console.error("Failed to connect to CouchDB:", error);
+      }
       throw error;
     }
 
-    console.info("CouchDB MCP Server initialized successfully!");
+    if (!this.isStdioTransport()) {
+      console.info("CouchDB MCP Server initialized successfully!");
+    }
   }
 
   async getTools(): Promise<Tool[]> {
@@ -59,12 +76,18 @@ export class CouchDBMCPServer {
   }
 
   async cleanup(): Promise<void> {
-    console.info("Cleaning up CouchDB MCP Server...");
+    if (!this.isStdioTransport()) {
+      console.info("Cleaning up CouchDB MCP Server...");
+    }
     try {
       await this.couchdbClient.cleanup();
-      console.info("CouchDB MCP Server cleanup completed");
+      if (!this.isStdioTransport()) {
+        console.info("CouchDB MCP Server cleanup completed");
+      }
     } catch (error) {
-      console.error("Error during CouchDB MCP Server cleanup:", error);
+      if (!this.isStdioTransport()) {
+        console.error("Error during CouchDB MCP Server cleanup:", error);
+      }
     }
   }
 }

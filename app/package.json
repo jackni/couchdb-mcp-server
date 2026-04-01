@@ -1,6 +1,6 @@
 {
   "name": "couchdb-mcp-server",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "CouchDB Control Plane MCP Server",
   "main": "dist/index.js",
   "scripts": {

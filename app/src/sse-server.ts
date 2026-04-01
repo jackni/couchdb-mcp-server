@@ -364,6 +364,41 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
       }
     }
 
+    // Per-tool direct call endpoint: POST /tools/{toolName}
+    if (req.method === "POST" && url.pathname.startsWith("/tools/")) {
+      const toolName = url.pathname.slice("/tools/".length);
+
+      if (!toolName) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Tool name is required in path" }));
+        return;
+      }
+
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk.toString();
+      });
+
+      req.on("end", async () => {
+        try {
+          const args = body ? JSON.parse(body) : {};
+          const result = await couchdbServer.handleToolCall(toolName, args);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          console.error("Per-tool call error:", error);
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : "Unknown error",
+            })
+          );
+        }
+      });
+
+      return;
+    }
+
     // Direct tool call endpoint (for testing)
     if (url.pathname === "/tools" && req.method === "POST") {
       let body = "";

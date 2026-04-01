@@ -28,6 +28,17 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
+function isStdioTransport(): boolean {
+  // In STDIO transport, stdout must remain a clean JSON-RPC stream.
+  // Some MCP clients may merge stderr into the same reader, so we suppress all logs in STDIO mode.
+  return (
+    process.env.MCP_TRANSPORT === "stdio" ||
+    (!process.argv.includes("--sse") &&
+      !process.argv.includes("--streamable-http") &&
+      !process.argv.includes("--http-stream"))
+  );
+}
+
 // Load configuration from config.json
 function loadConfigFromFile(): Partial<Config> {
   try {
@@ -35,10 +46,17 @@ function loadConfigFromFile(): Partial<Config> {
     const configPath = join(process.cwd(), "config.json");
     const configFile = readFileSync(configPath, "utf-8");
     const jsonConfig = JSON.parse(configFile);
-    console.error(`Loaded configuration from: ${configPath}`);
+    if (!isStdioTransport()) {
+      console.error(`Loaded configuration from: ${configPath}`);
+    }
     return jsonConfig;
   } catch (error) {
-    console.error("Failed to load config.json, using defaults:", error instanceof Error ? error.message : error);
+    if (!isStdioTransport()) {
+      console.error(
+        "Failed to load config.json, using defaults:",
+        error instanceof Error ? error.message : error
+      );
+    }
     return {};
   }
 }

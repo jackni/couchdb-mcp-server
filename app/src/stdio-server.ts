@@ -14,19 +14,19 @@ export async function createStdioServer(
 ): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.info("CouchDB MCP Server started successfully!");
+  // IMPORTANT: In STDIO transport, stdout is the JSON-RPC channel.
+  // Some MCP clients may also merge stderr into the same reader.
+  // Therefore STDIO mode must be completely silent (no console output).
 
   let isShuttingDown = false;
   const gracefulShutdown = async (signal: string) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
-    console.info(`\nReceived ${signal}. Shutting down gracefully...`);
     try {
       await couchdbServer.cleanup();
-      console.info("Graceful shutdown complete");
       process.exit(0);
     } catch (error) {
-      console.error("Error during shutdown:", error);
+      // Intentionally silent in STDIO mode to avoid corrupting JSON-RPC stream.
       process.exit(1);
     }
   };

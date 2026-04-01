@@ -19,6 +19,15 @@ export class AuditLogger {
     this.maxEvents = config?.maxEvents || 10000;
   }
 
+  private isStdioTransport(): boolean {
+    return (
+      process.env.MCP_TRANSPORT === "stdio" ||
+      (!process.argv.includes("--sse") &&
+        !process.argv.includes("--streamable-http") &&
+        !process.argv.includes("--http-stream"))
+    );
+  }
+
   logOperation(operation: string, parameters: any, metadata?: Record<string, any>): void {
     const event: AuditEvent = {
       timestamp: new Date(),
@@ -115,6 +124,11 @@ export class AuditLogger {
   }
 
   private logToConsole(event: AuditEvent): void {
+    if (this.isStdioTransport()) {
+      // Keep STDIO mode silent: stdout/stderr may be treated as protocol stream by MCP clients.
+      return;
+    }
+
     const logLevel = this.config?.logLevel || 'info';
     
     if (logLevel === 'debug' || event.result === 'error') {

@@ -41,6 +41,15 @@ export class CouchDBClient {
     });
   }
 
+  private isStdioTransport(): boolean {
+    return (
+      process.env.MCP_TRANSPORT === "stdio" ||
+      (!process.argv.includes("--sse") &&
+        !process.argv.includes("--streamable-http") &&
+        !process.argv.includes("--http-stream"))
+    );
+  }
+
   // Cleanup method to close connections
   async cleanup(): Promise<void> {
     try {
@@ -49,9 +58,13 @@ export class CouchDBClient {
       if (this.connection && typeof (this.connection as any).destroy === 'function') {
         (this.connection as any).destroy();
       }
-      console.error("CouchDB client cleanup completed");
+      if (!this.isStdioTransport()) {
+        console.error("CouchDB client cleanup completed");
+      }
     } catch (error) {
-      console.error("Error during CouchDB client cleanup:", error);
+      if (!this.isStdioTransport()) {
+        console.error("Error during CouchDB client cleanup:", error);
+      }
     }
   }
 
@@ -190,7 +203,9 @@ export class CouchDBClient {
   async createRole(roleName: string): Promise<void> {
     // CouchDB doesn't have explicit role creation - roles are created implicitly
     // when assigned to users or used in security documents
-    console.log(`Role ${roleName} will be created implicitly when used`);
+    if (!this.isStdioTransport()) {
+      console.log(`Role ${roleName} will be created implicitly when used`);
+    }
   }
 
   async assignUserToRole(username: string, role: string): Promise<void> {
