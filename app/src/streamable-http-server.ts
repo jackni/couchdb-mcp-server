@@ -231,14 +231,18 @@ export async function createStreamableHTTPServer(
 
     // MCP Info endpoint
     if (url.pathname === "/info" && req.method === "GET") {
-      const tools = await couchdbServer.getTools();
+      const [tools, prompts] = await Promise.all([
+        couchdbServer.getTools(),
+        couchdbServer.getPrompts(),
+      ]);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
           name: "couchdb-mcp-server",
-          version: "1.1.0",
+          version: "1.1.1",
           description: "CouchDB Control Plane MCP Server",
           tools,
+          prompts,
           transport: "streamable-http",
         })
       );

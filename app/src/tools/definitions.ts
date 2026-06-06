@@ -15,7 +15,8 @@ export function getDatabaseTools(): Tool[] {
     },
     {
       name: "delete-database",
-      description: "Delete a database",
+      description:
+        "Permanently delete a database and all its documents. Destructive — confirm with the user before calling.",
       inputSchema: {
         type: "object",
         properties: {
@@ -26,7 +27,8 @@ export function getDatabaseTools(): Tool[] {
     },
     {
       name: "get-database-info",
-      description: "Get information about a database",
+      description:
+        "Get metadata for one database: doc count, update sequence, disk size, and purge seq. Use after list-databases to inspect a specific DB. Read-only.",
       inputSchema: {
         type: "object",
         properties: {
@@ -37,7 +39,8 @@ export function getDatabaseTools(): Tool[] {
     },
     {
       name: "list-databases",
-      description: "List all databases",
+      description:
+        "List all database names on the CouchDB instance. Use this first to discover databases. Returns system DBs (_users, _replicator, _global_changes) and user DBs. Read-only.",
       inputSchema: {
         type: "object",
         properties: {
@@ -76,33 +79,39 @@ export function getDocumentTools(): Tool[] {
     },
     {
       name: "update-document",
-      description: "Update a document in a database",
+      description:
+        "Update a document. Must include current _rev in the document body or the update will fail with a conflict.",
       inputSchema: {
         type: "object",
         properties: {
           databaseName: { type: "string", description: "Database name" },
           documentId: { type: "string", description: "Document ID" },
-          document: { type: "object", description: "Updated document" },
+          document: { type: "object", description: "Full document body including _id and _rev" },
         },
         required: ["databaseName", "documentId", "document"],
       },
     },
     {
       name: "delete-document",
-      description: "Delete a document from a database",
+      description:
+        "Delete a document by ID. Requires current _rev. Destructive — confirm with the user before calling.",
       inputSchema: {
         type: "object",
         properties: {
           databaseName: { type: "string", description: "Database name" },
           documentId: { type: "string", description: "Document ID" },
-          revision: { type: "string", description: "Document revision" },
+          revision: {
+            type: "string",
+            description: "Current document revision (_rev). Required to avoid deleting the wrong version.",
+          },
         },
         required: ["databaseName", "documentId", "revision"],
       },
     },
     {
       name: "list-documents",
-      description: "List all documents in a database",
+      description:
+        "List document IDs (and optionally full docs) from a database. Use only for small DBs or with limit. For filtered search, prefer mango-query-database.",
       inputSchema: {
         type: "object",
         properties: {
@@ -150,7 +159,8 @@ export function getSecurityTools(): Tool[] {
     },
     {
       name: "delete-user",
-      description: "Delete a user",
+      description:
+        "Remove a CouchDB user from _users. Destructive — confirm with the user before calling.",
       inputSchema: {
         type: "object",
         properties: {
@@ -161,7 +171,8 @@ export function getSecurityTools(): Tool[] {
     },
     {
       name: "set-database-security",
-      description: "Set security permissions for a database",
+      description:
+        "Update admin/member access for a database. Changes who can read/write. Confirm target DB and permissions before calling.",
       inputSchema: {
         type: "object",
         properties: {
@@ -196,7 +207,8 @@ export function getReplicationTools(): Tool[] {
   return [
     {
       name: "create-replication",
-      description: "Create a replication between databases",
+      description:
+        "Create a replication job in _replicator. Requires source, target, and replication ID. Use continuous: true for ongoing sync.",
       inputSchema: {
         type: "object",
         properties: {
@@ -238,7 +250,10 @@ export function getDesignTools(): Tool[] {
         type: "object",
         properties: {
           databaseName: { type: "string", description: "Database name" },
-          designName: { type: "string", description: "Design document name" },
+          designName: {
+            type: "string",
+            description: "Design doc name without _design/ prefix (e.g. 'myview')",
+          },
           designDoc: { type: "object", description: "Design document content" },
         },
         required: ["databaseName", "designName", "designDoc"],
@@ -251,7 +266,10 @@ export function getDesignTools(): Tool[] {
         type: "object",
         properties: {
           databaseName: { type: "string", description: "Database name" },
-          designName: { type: "string", description: "Design document name" },
+          designName: {
+            type: "string",
+            description: "Design doc name without _design/ prefix (e.g. 'myview')",
+          },
         },
         required: ["databaseName", "designName"],
       },
@@ -302,7 +320,8 @@ export function getQueryTools(): Tool[] {
     },
     {
       name: "mango-query-database",
-      description: "Query documents using MongoDB-style Mango query language",
+      description:
+        "Search documents with Mango selectors. Preferred for filtered/paginated reads. Create an index first if queries are slow. Read-only.",
       inputSchema: {
         type: "object",
         properties: {

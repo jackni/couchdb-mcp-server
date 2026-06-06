@@ -222,13 +222,17 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
 
     // MCP Info endpoint
     if (url.pathname === "/info" && req.method === "GET") {
-      const tools = await couchdbServer.getTools();
+      const [tools, prompts] = await Promise.all([
+        couchdbServer.getTools(),
+        couchdbServer.getPrompts(),
+      ]);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "couchdb-mcp-server",
-        version: "1.0.0",
+        version: "1.1.1",
         description: "CouchDB Control Plane MCP Server",
         tools: tools,
+        prompts: prompts,
         transport: "sse"
       }));
       return;
@@ -320,16 +324,19 @@ export async function createSSEServer(mcpServer: MCPServer, config: Config): Pro
                 protocolVersion: "2024-11-05",
                 capabilities: {
                   tools: {},
-                  resources: {}
+                  resources: {},
+                  prompts: {},
                 },
                 serverInfo: {
                   name: "couchdb-mcp-server",
-                  version: "1.0.0"
+                  version: "1.1.1"
                 }
               };
             } else if (mcpRequest.method === "prompts/list") {
-              // Return empty prompts list since this server doesn't expose prompts
-              result = { prompts: [] };
+              result = { prompts: await couchdbServer.getPrompts() };
+            } else if (mcpRequest.method === "prompts/get") {
+              const { name, arguments: args } = mcpRequest.params;
+              result = await couchdbServer.resolvePrompt(name, args ?? {});
             } else if (mcpRequest.method === "notifications/initialized") {
               // Handle initialization notification - no response needed for notifications
               console.info("Client initialized notification received");

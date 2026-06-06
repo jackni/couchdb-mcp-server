@@ -1,0 +1,17 @@
+{
+  "couchdb": {
+    "url": "https://your-couchdb-url",
+    "adminUsername": "your-admin-username",
+    "adminPassword": "your-admin-password"
+  },
+  "server": {
+    "port": 3008,
+    "host": "0.0.0.0",
+    "logLevel": "info"
+  },
+  "security": {
+    "credentialPrefix": "U-",
+    "passwordLength": 32,
+    "rolePrefix": "role-"
+  }
+}

@@ -1,8 +1,15 @@
-import { Tool, CallToolResult, TextContent } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolResult,
+  GetPromptResult,
+  Prompt,
+  TextContent,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
 import { Config } from "./config.js";
 import { CouchDBClient } from "./couchdb/client.js";
 import { CredentialManager } from "./security/credentials.js";
 import { AuditLogger } from "./audit/logger.js";
+import { getAllPrompts, getPrompt } from "./prompts/definitions.js";
 import { getAllTools } from "./tools/definitions.js";
 import { ToolHandlers } from "./handlers/index.js";
 
@@ -53,6 +60,14 @@ export class CouchDBMCPServer {
 
   async getTools(): Promise<Tool[]> {
     return getAllTools();
+  }
+
+  async getPrompts(): Promise<Prompt[]> {
+    return getAllPrompts();
+  }
+
+  async resolvePrompt(name: string, args: Record<string, string> = {}): Promise<GetPromptResult> {
+    return getPrompt(name, args);
   }
 
   async handleToolCall(name: string, args: any): Promise<CallToolResult> {

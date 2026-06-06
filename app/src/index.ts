@@ -3,6 +3,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { config } from "./config.js";
@@ -27,12 +29,13 @@ async function main() {
   const server = new Server(
     {
       name: "couchdb-mcp-server",
-      version: "1.0.0",
+      version: "1.1.1",
     },
     {
       capabilities: {
         tools: {},
         resources: {},
+        prompts: {},
       },
     }
   );
@@ -51,6 +54,17 @@ async function main() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     return await couchdbServer.handleToolCall(name, args || {});
+  });
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    return {
+      prompts: await couchdbServer.getPrompts(),
+    };
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return await couchdbServer.resolvePrompt(name, args ?? {});
   });
 
   // Transport selection

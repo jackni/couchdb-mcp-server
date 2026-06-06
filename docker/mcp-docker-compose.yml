@@ -1,7 +1,8 @@
 services:
   couchdb-mcp:
-    image: "deviljackni/couchdb-mcp-server:1.1.0"
+    image: "deviljackni/couchdb-mcp-server:1.1.1"
     container_name: "couchdb-mcp"
+    restart: always
     environment:
       MCP_TRANSPORT: "streamable-http"   # stdio | sse | streamable-http
     # build:
@@ -15,4 +16,4 @@ services:
       - ./config.json:/app/config.json
     stdin_open: true # you need this for tunnel the code sync
     ports:
-      - 3006:3008
+      - 3008:3008
